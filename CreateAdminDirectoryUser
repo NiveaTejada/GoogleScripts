@@ -1,0 +1,123 @@
+/*
+Created by Nivea Tejada.
+If you have any questions about this code, please
+feel free to contact me at NiveaTejada@Gmail.com. 
+*/
+//This variable is for the main sheet you will be checking/pulling your information from
+var SHEET_NAME = 'Sheet Name';     
+//This variable is to allow the system to know if the user was created successfully
+var USER_CREATED_TEXT = 'User Created';
+
+function createUsersForFailedRows(){
+var ss = SpreadsheetApp.getActiveSpreadsheet();
+var sheet = ss.getSheetByName(SHEET_NAME);
+var dataRange = sheet.getDataRange();
+var rowValues = dataRange.getValues();
+var rowNum = rowValues.length;
+/*
+This for loop will allow the script to look through every row. 
+If the 10th column of that row, where the user status text is held, is empty that means
+the user was not successfully created. 
+If the 10th column had the USER_CREATED_TEXT, then the user was in fact created and the
+script can skip the row as it has nothing to do. 
+*/
+for (var row = 1; row<rowNum; row++) {
+    if (USER_CREATED_TEXT !=rowValues[row][10-1]){
+      createUser_(ss,sheet, row+1);
+      Utilities.sleep(500);
+      Logger.log("User failed to be created - Will now attempt to create user")
+    }
+    else{
+      Logger.log("Do nothing - This user was successfully created")
+    } 
+  }
+}
+
+
+function createUser_(ss,sheet,row) {
+//Information for the user that is to be created
+var firstName = sheet.getRange(row, 1).getValue();
+var lastName = sheet.getRange(row, 2).getValue();
+var emailAddress = sheet.getRange(row, 3).getValue();
+var phoneNumber = sheet.getRange(row, 4).getValue();
+//User Organization Information 
+var orgName = sheet.getRange(row, 5).getValue();
+var orgDepartment = sheet.getRange(row, 6).getValue();
+ var orgTitle = sheet.getRange(row, 7).getValue();
+//User Address information
+var city = sheet.getRange(row, 8).getValue();
+var state = sheet.getRange(row, 9).getValue();
+var userEmail = firstName+"."+lastName+"@YourDomain.com";
+//Generate a random password string
+var newPassword = Math.random().toString(36).slice(-8);  
+//Create the User
+var user = {
+  primaryEmail: emailAddress,
+  name: {
+    givenName: firstName,
+    familyName: lastName
+  },
+  addresses:[ 
+    {
+      locality:city,
+      region: state,
+      type :"work",
+      primary: true
+    }
+  ],
+  //This allows the user to change their password upon initial login
+  changePasswordAtNextLogin:true,
+  //Enter the org unit that you would like to user be belong to
+  orgUnitPath:"",
+  emails:[
+    {
+      address:emailAddress,
+      type:"work"
+    }
+  ],
+  organizations:[
+    {
+      name:orgName,
+      title:orgTitle,
+      department:orgDepartment,
+      type :"work",
+      primary: true
+    }
+  ],
+  phones:[
+    {
+      type:"mobile",
+      value:phoneNumber
+    }
+  ],
+  // Sets the password to the random password generated
+  password: newPassword
+};
+
+var userSuccess = false;
+var userStatus = responses.getRange(row, 11);
+//Try to create user and add user to the Admin Directory
+try{
+  user = AdminDirectory.Users.insert(user);
+  userSuccess = true;
+  userStatus.setValue("Creation of User was a success");
+}
+/*
+There are instances where the script will fail to add the user. 
+A very common error is:
+- The user (entity) with the same First and Last name already exists
+*/
+catch(e){  
+  Logger.log("error"+e);
+  //This adds what the error is to the spreadsheet rather than having to check logs
+  userStatus.setValue("The following Error Occured while creating the user: " + e);
+}
+
+    if (userSuccess) {
+    var SetStatus = responses.getRange(row, 10).setValue(USER_CREATED_TEXT);
+    Logger.log ("The user for the row "+row+" has been successfully created");
+  } else {
+    Logger.log ("The user for the row "+row+" was not created");
+  }
+
+}
